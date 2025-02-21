@@ -113,3 +113,47 @@ Order Processing Logic
 
 
 EXAMPLE OUTPUT
+
+
+
+CafeBot Order System:
+Press 1 for Table 1
+Press 2 for Table 2
+Press 3 for Table 3
+Press 9 to start the robot
+Press C to cancel and return home
+Enter order (or 9 to start, C to cancel): 1
+Order added for table1.
+Enter order (or 9 to start, C to cancel): 9
+
+Starting order processing...
+
+
+Moving to kitchen at array('d', [3.715, 2.45])...
+[INFO] [1740155238.388167528] [basic_navigator]: Navigating to goal: 3.715 2.45...
+
+Arrived at kitchen!
+
+Moving to table1 at array('d', [7.184, 2.739])...
+[INFO] [1740155254.566019803] [basic_navigator]: Navigating to goal: 7.184 2.739...
+
+Arrived at table1!
+
+Arrived at table1. Waiting for 10 seconds...
+Press 0 to confirm food placement and move immediately.
+Wait time over. Moving to next location...
+
+Moving to kitchen at array('d', [3.715, 2.45])...
+[INFO] [1740155281.149660214] [basic_navigator]: Navigating to goal: 3.715 2.45...
+
+Arrived at kitchen!
+
+Moving to home at array('d', [3.406, 0.736])...
+[INFO] [1740155305.480122255] [basic_navigator]: Navigating to goal: 3.406 0.736...
+
+Arrived at home!
+
+All orders delivered. CafeBot is ready for new orders!
+
+
+
