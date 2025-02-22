@@ -34,78 +34,85 @@ class CafeBot(Node):
         self.order_cancelled = False  # Flag to check if 'C' was pressed
 
     def take_order(self):
-        """Takes table orders from the user and waits for '9' to start the robot."""
-        print("\nCafeBot Order System:")
-        print("Press 1 for Table 1")
-        print("Press 2 for Table 2")
-        print("Press 3 for Table 3")
-        print("Press 9 to start the robot")
-        print("Press C to cancel and return home")
-
         while True:
-            user_input = input("Enter order (or 9 to start, C to cancel): ")
-            if user_input == "9":
-                if self.orders:
-                    break
-                else:
-                    print("No tables selected. Please select at least one table before pressing 9.")
-            elif user_input.lower() == "c":
-                print("Order cancelled. Returning to home position.")
-                self.order_cancelled = True
-                self.process_cancellation()
-                return
-            elif user_input in ["1", "2", "3"]:
-                table = f"table{user_input}"
-                if table not in self.orders:
-                    self.orders.append(table)
-                    print(f"Order added for {table}.")
-                else:
-                    print(f"Table {user_input} is already selected.")
-            else:
-                print("Invalid input. Please enter 1, 2, 3, 9, or C.")
+            self.orders.clear()  # Reset previous orders after returning home
+            print("\nCafeBot Order System:")
+            print("Press 1 for Table 1")
+            print("Press 2 for Table 2")
+            print("Press 3 for Table 3")
+            print("Press 7 to start moving to tables")
+            print("Press 9 to start the robot and wait at the kitchen")
+            print("Press C to cancel and return home")
 
-        print("\nStarting order processing...\n")
-        self.process_orders()
+            move_to_tables = False
+
+            while True:
+                user_input = input("Enter order (7 to move to tables, 9 to wait at kitchen, C to cancel): ")
+                if user_input == "7":
+                    if self.orders:
+                        move_to_tables = True
+                        break
+                    else:
+                        print("No tables selected. Please select at least one table before pressing 7.")
+                elif user_input == "9":
+                    print("Moving to the kitchen and waiting for further instructions.")
+                    self.move_to_location("kitchen")
+                    if not self.wait_for_user_input(10, "7"):
+                        print("No input received. Returning to home.")
+                        self.move_to_location("home")
+                        break  # Ask for the next order after returning home
+                    move_to_tables = True  # If 7 is pressed, continue to tables
+                    break
+                elif user_input.lower() == "c":
+                    print("Order cancelled. Returning to home position.")
+                    self.order_cancelled = True
+                    self.process_cancellation()
+                    return
+                elif user_input in ["1", "2", "3"]:
+                    table = f"table{user_input}"
+                    if table not in self.orders:
+                        self.orders.append(table)
+                        print(f"Order added for {table}.")
+                    else:
+                        print(f"Table {user_input} is already selected.")
+                else:
+                    print("Invalid input. Please enter 1, 2, 3, 7, 9, or C.")
+
+            if move_to_tables:
+                print("\nStarting order processing...")
+                self.process_orders()
+
+    def wait_for_user_input(self, timeout, expected_input):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                key = sys.stdin.read(1).strip()
+                if key == expected_input:
+                    return True
+        return False
 
     def process_orders(self):
-        """Processes the selected orders one by one."""
         if not self.orders:
             print("No orders received.")
             return
 
-        # Move to the kitchen first if no 0 has been pressed before
-        if not self.user_skip:
-            self.move_to_location("kitchen")
-            time.sleep(2)  # Simulate food pickup
+        self.move_to_location("kitchen")
+        time.sleep(2)
 
-        # Deliver to tables
         for table in self.orders:
             if self.order_cancelled:
-                return  # Stop processing if cancellation happened
+                return
 
             self.current_task = table
             self.move_to_location(table)
             self.wait_at_table(table)
 
-        # Decide final return location
-        if len(self.user_skip) == len(self.orders):
-            self.move_to_location("home")
-        else:
-            self.move_to_location("kitchen")
-            self.move_to_location("home")
-
-        self.current_task = None  # Task completed
-        print("\nAll orders delivered. CafeBot is ready for new orders!")
-
-    def process_cancellation(self):
-        """Handles the order cancellation process."""
-        self.move_to_location("kitchen")
         self.move_to_location("home")
-        self.order_cancelled = False  # Reset flag after returning home
-        print("\nOrder cancelled. CafeBot is now at home and ready for new orders!")
+        self.current_task = None
+        print("\nAll orders delivered. CafeBot is ready for new orders!")
+        self.take_order()
 
     def wait_at_table(self, table):
-        """Waits 10 seconds at a table unless '0' is pressed to move immediately."""
         print(f"\nArrived at {table}. Waiting for 10 seconds...")
         print("Press 0 to confirm food placement and move immediately.")
 
@@ -121,7 +128,6 @@ class CafeBot(Node):
         print(f"Wait time over. Moving to next location...")
 
     def move_to_location(self, location):
-        """Moves robot to the given waypoint location asynchronously."""
         if location not in self.waypoints:
             print(f"Unknown location: {location}")
             return
@@ -131,31 +137,28 @@ class CafeBot(Node):
         goal_pose.header.stamp = self.get_clock().now().to_msg()
         goal_pose.pose.position.x = self.waypoints[location][0]
         goal_pose.pose.position.y = self.waypoints[location][1]
-        goal_pose.pose.orientation.w = 1.0  # Assume no rotation needed
+        goal_pose.pose.orientation.w = 1.0
 
         print(f"\nMoving to {location} at {self.waypoints[location]}...")
 
-        # Send navigation goal asynchronously
         self.navigator.goToPose(goal_pose)
 
-        # Wait for the navigation task to complete
         while not self.navigator.isTaskComplete():
-            rclpy.spin_once(self, timeout_sec=0.1)  # Process ROS 2 callbacks while waiting
+            rclpy.spin_once(self, timeout_sec=0.1)
 
         print(f"\nArrived at {location}!")
+
+
 def main(args=None):
     rclpy.init(args=args)
     node = CafeBot()
 
-    # Create an executor to manage ROS 2 callbacks properly
     executor = rclpy.executors.MultiThreadedExecutor()
     executor.add_node(node)
 
-    # Start the order-taking logic in a separate thread
     order_thread = threading.Thread(target=node.take_order, daemon=True)
     order_thread.start()
 
-    # Run the ROS 2 executor in the main thread
     try:
         executor.spin()
     except KeyboardInterrupt:
